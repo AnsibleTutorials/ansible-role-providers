@@ -7,6 +7,7 @@ Supported Providers
 -------------------
 
 - Vagrant
+- DigitalOcean
 
 Requirements
 ------------

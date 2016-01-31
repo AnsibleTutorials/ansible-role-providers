@@ -13,3 +13,7 @@
     ansible_ssh_user: vagrant
     user_username: vagrant
   when: "'vagrant' in group_names"
+
+# DigitalOcean
+- include: digitalocean.yml
+  when: "'digitalocean' in group_names"
