@@ -1,4 +1,3 @@
 ---
-user_username: ansible
 # Sudo Password: "ansible"
 user_password: $5$rounds=110000$hx498nalUxPUc0ve$srNjvCmVLiIsVYo6tBvQplu7Z.O/OBjJA7PMVcsJpGA

@@ -11,17 +11,68 @@
 # because root SSH login is disabled)
 # "Permission denied (publickey)."
 # SSH Check Code From: http://unix.stackexchange.com/questions/30140/how-to-check-if-i-can-log-in-to-server-via-ssh
-- name: Checking Provisioned Status
-  # Alternates
-  # {{ ansible_ssh_host }}
-  local_action: shell ssh -o BatchMode=yes -o ConnectTimeout=5 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@{{ inventory_hostname }} echo "NEW" || echo "PROVISIONED" 2>&1
-  #ignore_errors: True
+
+- name: Default machine state to not provisioned
+  set_fact:
+    new_host: True
+    user_username: "{{ ansible_ssh_user }}"
+    # Hold the desired username temporarily
+    # Because we need to change "ansible_ssh_user" to "root" and others
+    # This reassignment should be transparent to the end user
+
+- name: Determine if hostname is a FQDN
+  local_action: shell host {{ inventory_hostname }} 2>&1 > /dev/null
   changed_when: False
-  register: host_provisioned
+  failed_when: False
+  register: fqdn_lookup
+
+####################
+##### DNS HOST #####
+####################
+
+# Uses Variable: inventory_hostname
+- name: Checking Provisioned Status (DNS HOSTNAME)
+  local_action: shell ssh -o BatchMode=yes -o ConnectTimeout=5 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {{ user_username }}@{{ inventory_hostname }} echo "PROVISIONED" || echo "NEW" 2>&1
+  changed_when: False
+  when: fqdn_lookup.rc == 0
+  register: host_provisioned_dns
+
+- name: Mark Machine As Provisioned (DNS HOSTNAME)
+  set_fact:
+    new_host: False
+  when: host_provisioned_dns is defined and host_provisioned_dns.stdout == "PROVISIONED"
+
+# - debug: msg="DNS {{ host_provisioned_dns.stdout }}"
+#   when: host_provisioned_dns is defined
+
+######################
+##### IP ADDRESS #####
+######################
+
+# Uses Variable: ansible_ssh_host
+- name: Checking Provisioned Status (IP ADDRESS)
+  local_action: shell ssh -o BatchMode=yes -o ConnectTimeout=5 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {{ user_username }}@{{ ansible_ssh_host }} echo "PROVISIONED" || echo "NEW" 2>&1
+  changed_when: False
+  when: fqdn_lookup.rc == 1
+  register: host_provisioned_ip
+
+- name: Mark Machine As Provisioned (IP ADDRESS)
+  set_fact:
+    new_host: False
+  when: host_provisioned_ip is defined and host_provisioned_ip.stdout == "PROVISIONED"
+
+# - debug: msg="IP {{ host_provisioned_ip.stdout }}"
+#   when: host_provisioned_ip is defined
+
+#####################
+##### PROVISION #####
+#####################
+
+- debug: msg="{{ inventory_hostname }} - New Host? {{ new_host }}"
 
 # Run Root Tasks (if needed)
 - include: root.yml
   become: yes
   vars:
     ansible_ssh_user: root
-  when: host_provisioned.stdout == "NEW"
+  when: new_host
